@@ -17,6 +17,7 @@ from playwright.sync_api import sync_playwright
 CLAW_CLOUD_URL = "https://ap-northeast-1.run.claw.cloud"
 SIGNIN_URL = f"{CLAW_CLOUD_URL}/signin"
 DEVICE_VERIFY_WAIT = 80
+TWO_FACTOR_WAIT = 60
 
 
 class Telegram:
@@ -166,10 +167,7 @@ class AutoLogin:
             self.tg.send("🔑 <b>Cookie 已自动更新</b>\n\nGH_SESSION 已保存")
         else:
             # 通过 Telegram 发送
-            self.tg.send(f"""🔑 <b>新 Cookie</b>
-
-请更新 Secret <b>GH_SESSION</b>:
-<code>{value}</code>""")
+            self.tg.send(f"""🔑 <b>新 Cookie</b>\n\n请更新 Secret <b>GH_SESSION</b>:\n<code>{value}</code>""")
             self.log("已通过 Telegram 发送 Cookie", "SUCCESS")
     
     def wait_device(self, page):
@@ -177,11 +175,7 @@ class AutoLogin:
         self.log(f"需要设备验证，等待 {DEVICE_VERIFY_WAIT} 秒...", "WARN")
         self.shot(page, "设备验证")
         
-        self.tg.send(f"""⚠️ <b>需要设备验证</b>
-
-请在 {DEVICE_VERIFY_WAIT} 秒内批准：
-1️⃣ 检查邮箱点击链接
-2️⃣ 或在 GitHub App 批准""")
+        self.tg.send(f"""⚠️ <b>需要设备验证</b>\n\n请在 {DEVICE_VERIFY_WAIT} 秒内批准：\n1️⃣ 检查邮箱点击链接\n2️⃣ 或在 GitHub App 批准""")
         
         if self.shots:
             self.tg.photo(self.shots[-1], "设备验证页面")
@@ -245,9 +239,27 @@ class AutoLogin:
         
         # 2FA
         if 'two-factor' in page.url:
-            self.log("需要两步验证！", "ERROR")
-            self.tg.send("❌ <b>需要两步验证</b>")
-            return False
+            self.log(f"检测到两步验证页面，等待用户完成（最多 {TWO_FACTOR_WAIT} 秒）...", "WARN")
+            # 通知用户在 GitHub 页面输入或通过设备批准
+            self.tg.send(f"⚠️ <b>需要两步验证</b>\n\n请在 {TWO_FACTOR_WAIT} 秒内在 GitHub 页面输入验证码或在 GitHub App/邮箱中批准登录。")
+            self.shot(page, "github_2fa")
+
+            for i in range(TWO_FACTOR_WAIT):
+                time.sleep(1)
+                if i % 5 == 0:
+                    self.log(f"  等待 2FA... ({i}/{TWO_FACTOR_WAIT}秒)")
+                try:
+                    page.reload(timeout=10000)
+                    page.wait_for_load_state('networkidle', timeout=10000)
+                except:
+                    pass
+                if 'two-factor' not in page.url:
+                    self.log("检测到 2FA 已完成，继续后续流程", "SUCCESS")
+                    break
+            else:
+                self.log("两步验证超时", "ERROR")
+                self.tg.send("❌ <b>两步验证超时</b>\n\n请手动再次触发工作流或考虑使用 PAT/TOTP 自动化方案。")
+                return False
         
         # 错误
         try:
@@ -302,11 +314,7 @@ class AutoLogin:
         if not self.tg.ok:
             return
         
-        msg = f"""<b>🤖 ClawCloud 自动登录</b>
-
-<b>状态:</b> {"✅ 成功" if ok else "❌ 失败"}
-<b>用户:</b> {self.username}
-<b>时间:</b> {time.strftime('%Y-%m-%d %H:%M:%S')}"""
+        msg = f"""<b>🤖 ClawCloud 自动登录</b>\n\n<b>状态:</b> {"✅ 成功" if ok else "❌ 失败"}\n<b>用户:</b> {self.username}\n<b>时间:</b> {time.strftime('%Y-%m-%d %H:%M:%S')}"""
         
         if err:
             msg += f"\n<b>错误:</b> {err}"
