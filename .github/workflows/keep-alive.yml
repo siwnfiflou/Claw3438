@@ -27,9 +27,9 @@ jobs:
 
       - name: 运行自动登录
         env:
-          GH_USERNAME: ${{ secrets.GH_USERNAME }}
-          GH_PASSWORD: ${{ secrets.GH_PASSWORD }}
-          GH_SESSION: ${{ secrets.GH_SESSION }}
+          GH_USERNAME: ${{ secrets.GH_USERNAME3438 }}
+          GH_PASSWORD: ${{ secrets.GH_PASSWORD3438 }}
+          GH_SESSION: ${{ secrets.GH_SESSION3438 }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
